@@ -52,6 +52,7 @@ async function processText(action) {
   }
 
   showLoading(true);
+  setUIEnabled(false);
   currentAction = action;
   currentResult = null;
 
@@ -63,22 +64,43 @@ async function processText(action) {
       language: 'Spanish'
     };
 
-    chrome.runtime.sendMessage(message, (response) => {
-      showLoading(false);
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        // runtime-level errors
+        if (chrome.runtime.lastError) {
+          showLoading(false);
+          setUIEnabled(true);
+          alert('Extension error: ' + chrome.runtime.lastError.message);
+          return;
+        }
 
-      if (response && response.success) {
-        currentResult = response.data.output;
-        displayResult(currentResult, action);
-      } else {
-        const errorMsg = response?.error || 'Unknown error occurred';
-        alert(`Error: ${errorMsg}\n\nMake sure Chrome's built-in AI is enabled at chrome://flags`);
-        console.error('AI Error:', errorMsg);
-      }
-    });
+        showLoading(false);
+        setUIEnabled(true);
+
+        if (response && response.success) {
+          currentResult = response.data.output;
+          displayResult(currentResult, action);
+        } else {
+          const errorMsg = response?.error || 'Unknown error occurred';
+          alert(`Error: ${errorMsg}\n\nMake sure Chrome's built-in AI is enabled at chrome://flags`);
+          console.error('AI Error:', errorMsg);
+        }
+      });
+    } catch (err) {
+      showLoading(false);
+      setUIEnabled(true);
+      alert('Failed to send message to background: ' + String(err));
+    }
   } catch (error) {
     showLoading(false);
+    setUIEnabled(true);
     alert('Error: ' + error.message);
   }
+}
+
+function setUIEnabled(enabled) {
+  const actionButtons = [elements.summarizeBtn, elements.proofreadBtn, elements.rephraseBtn, elements.simplifyBtn, elements.translateBtn];
+  actionButtons.forEach(b => { if (b) b.disabled = !enabled; });
 }
 
 function displayResult(result, action) {
@@ -117,20 +139,22 @@ function saveNote() {
   const note = {
     originalText: elements.inputText.value,
     result: currentResult,
-    action: currentAction,
+    action: String(currentAction).toLowerCase(),
     tone: elements.toneSelect.value
   };
 
-  chrome.runtime.sendMessage(
-    { action: 'saveNote', note: note },
-    (response) => {
-      if (response && response.success) {
-        alert('✅ Note saved to SmartBoard!');
-      } else {
-        alert('❌ Failed to save note');
-      }
+  chrome.runtime.sendMessage({ action: 'saveNote', note: note }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('saveNote sendMessage error:', chrome.runtime.lastError);
+      alert('Failed to save note: ' + chrome.runtime.lastError.message);
+      return;
     }
-  );
+    if (response && response.success) {
+      alert('\u2705 Note saved to SmartBoard!');
+    } else {
+      alert('\u274c Failed to save note');
+    }
+  });
 }
 
 function openDashboard() {

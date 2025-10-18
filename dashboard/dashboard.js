@@ -29,13 +29,27 @@ elements.themeToggle.addEventListener('click', toggleTheme);
  * Load notes from Chrome storage
  */
 async function loadNotes() {
-  chrome.runtime.sendMessage({ action: 'getNotes' }, (response) => {
-    if (response && response.success) {
-      allNotes = response.data || [];
-      renderNotes(allNotes);
-      updateStats();
-    }
-  });
+  try {
+    chrome.runtime.sendMessage({ action: 'getNotes' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error getting notes:', chrome.runtime.lastError);
+        return;
+      }
+      if (response && response.success) {
+        let notes = response.data || [];
+        if (!Array.isArray(notes)) notes = [];
+        // normalize actions to lowercase to make filtering predictable
+        notes = notes.map(n => ({ ...(n || {}), action: String((n && n.action) || '').toLowerCase() }));
+        // sort newest first
+        notes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        allNotes = notes;
+        renderNotes(allNotes);
+        updateStats();
+      }
+    });
+  } catch (err) {
+    console.error('loadNotes failed:', err);
+  }
 }
 
 /**
@@ -67,9 +81,11 @@ function createNoteCard(note) {
   const date = new Date(note.timestamp);
   const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 
+  const displayAction = String(note.action || '').replace(/(^|\s)\S/g, s => s.toUpperCase()) || 'Note';
+
   card.innerHTML = `
     <div class="note-header">
-      <span class="note-badge">${note.action}</span>
+      <span class="note-badge">${displayAction}</span>
       <span class="note-time">${timeStr}</span>
     </div>
     <div>
@@ -114,14 +130,18 @@ async function copyNoteResult(text) {
  */
 function deleteNote(id) {
   if (confirm('Delete this note?')) {
-    chrome.runtime.sendMessage(
-      { action: 'deleteNote', id: id },
-      (response) => {
-        if (response && response.success) {
-          loadNotes();
-        }
+    chrome.runtime.sendMessage({ action: 'deleteNote', id: id }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('deleteNote sendMessage error:', chrome.runtime.lastError);
+        alert('Failed to delete note: ' + chrome.runtime.lastError.message);
+        return;
       }
-    );
+      if (response && response.success) {
+        loadNotes();
+      } else {
+        alert('Failed to delete note');
+      }
+    });
   }
 }
 
@@ -129,12 +149,13 @@ function deleteNote(id) {
  * Filter notes by search query
  */
 function filterNotes() {
-  const query = elements.searchInput.value.toLowerCase();
-  const filtered = allNotes.filter(note =>
-    note.originalText.toLowerCase().includes(query) ||
-    note.result.toLowerCase().includes(query) ||
-    note.action.toLowerCase().includes(query)
-  );
+  const query = String(elements.searchInput.value || '').toLowerCase();
+  const filtered = allNotes.filter(note => {
+    const orig = String(note.originalText || '').toLowerCase();
+    const res = String(note.result || '').toLowerCase();
+    const act = String(note.action || '').toLowerCase();
+    return orig.includes(query) || res.includes(query) || act.includes(query);
+  });
   renderNotes(filtered);
 }
 
@@ -143,8 +164,8 @@ function filterNotes() {
  */
 function updateStats() {
   elements.totalNotes.textContent = allNotes.length;
-  elements.summarizeCount.textContent = allNotes.filter(n => n.action === 'summarize').length;
-  elements.proofreadCount.textContent = allNotes.filter(n => n.action === 'proofread').length;
+  elements.summarizeCount.textContent = allNotes.filter(n => String(n.action || '').toLowerCase() === 'summarize').length;
+  elements.proofreadCount.textContent = allNotes.filter(n => String(n.action || '').toLowerCase() === 'proofread').length;
 }
 
 /**
@@ -171,9 +192,18 @@ function exportNotes() {
  */
 function clearAllNotes() {
   if (confirm('Delete ALL notes? This cannot be undone.')) {
-    chrome.storage.local.set({ notes: [] }, () => {
-      loadNotes();
-    });
+    try {
+      chrome.storage.local.set({ notes: [] }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('storage.set error:', chrome.runtime.lastError);
+          alert('Failed to clear notes');
+          return;
+        }
+        loadNotes();
+      });
+    } catch (err) {
+      console.error('clearAllNotes failed:', err);
+    }
   }
 }
 
@@ -205,4 +235,28 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Safe element access
+if (!elements.notesGrid || !elements.emptyState || !elements.searchInput) {
+  console.warn('Dashboard DOM elements missing — check dashboard.html');
+}
+
+// Update loadNotes to validate array and sort
+async function loadNotes() {
+  chrome.runtime.sendMessage({ action: 'getNotes' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error getting notes:', chrome.runtime.lastError);
+      return;
+    }
+    if (response && response.success) {
+      let notes = response.data || [];
+      if (!Array.isArray(notes)) notes = [];
+      // sort newest first
+      notes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      allNotes = notes;
+      renderNotes(allNotes);
+      updateStats();
+    }
+  });
 }

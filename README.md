@@ -228,3 +228,36 @@ Feel free to fork, modify, and submit improvements!
 **Made for the Google Chrome Built-in AI Challenge 2025** 🚀
 
 **Questions?** Check the troubleshooting section above or review the code comments for details.
+
+## 🧭 Troubleshooting & Testing (new)
+
+If you're developing or testing SmartNote AI locally, these notes explain where the AI runs, what to do when the API isn't available, and a quick checklist to verify the extension works.
+
+### Where the AI runs
+
+- Primary: the background service worker (Manifest V3) will attempt to call the browser's built-in AI API first.
+- Fallback: if the background/service worker can't access the AI API (common in some Chrome versions or runtimes), the extension will try to delegate the AI call to the currently active tab. The content script injects a small page script to call `window.ai` from the page context and returns the result.
+
+This fallback is defensive and designed to keep the extension working on more Chrome builds. If neither context has the AI API, the extension will surface a clear error explaining that the AI API is not available.
+
+### Flags / Requirements
+
+- Chrome/Chromium: use a recent build (Chrome 123+ recommended for Gemini Nano APIs).
+- Enable Experimental Web Platform Features: `chrome://flags` → search `Experimental Web Platform Features` → **Enabled** → restart browser.
+- Note: Some sites use strict Content Security Policies (CSP) that block script injection. In those cases, the page-delegation fallback may fail with a timeout — the popup will show a friendly error.
+
+### Quick manual test checklist
+
+1. Open `chrome://extensions/` and enable **Developer mode**.
+2. Click **Load unpacked** and select the repository root (folder with `manifest.json`).
+3. Open the extension popup: enter a sample sentence and click **Summarize**. Observe loading state and result or a clear error message.
+4. Save a result to SmartBoard, then click **Open SmartBoard** and confirm the note appears (action badges are capitalized for readability). Verify search, copy, delete, and export features.
+5. On any webpage, select text, right-click and pick a context-menu action (Summarize, Proofread, etc.). If the background cannot access the AI API, the content script will try to run it in the page.
+6. If AI calls time out or fail, check `chrome://flags` and ensure experimental features are enabled, and test again on a different page (some pages block script injection).
+
+### Known limitations
+
+- CSP: Pages with restrictive Content Security Policy may prevent the content script from injecting the page script; this will cause the fallback to fail and an error to be returned to the user.
+- Non-availability of API: If neither the background nor the active page exposes the AI API, no local processing is possible — the extension will show an error prompting you to enable the experimental flag or try on a different page.
+
+If you'd like, I can add an in-extension UI fallback that opens a prefilled popup with the selected text when both automatic options fail. This would let users manually trigger processing from the popup.
