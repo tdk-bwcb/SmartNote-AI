@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "SmartNote AI",
+  "version": "1.0.0",
+  "description": "Privacy-first AI text processing with Chrome's built-in Gemini Nano",
+  "permissions": [
+    "scripting",
+    "contextMenus",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "SmartNote AI"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

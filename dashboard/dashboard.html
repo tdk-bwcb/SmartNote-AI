@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartBoard - SmartNote AI</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 SmartBoard</h1>
+      <div class="header-controls">
+        <input type="text" id="searchInput" placeholder="Search notes..." class="search-box">
+        <button id="themeToggle" class="theme-toggle">🌙</button>
+        <button id="exportBtn" class="btn btn-export">📥 Export</button>
+        <button id="clearBtn" class="btn btn-danger">🗑️ Clear All</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <span class="stat-label">Total Notes</span>
+        <span class="stat-value" id="totalNotes">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Summarizations</span>
+        <span class="stat-value" id="summarizeCount">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Proofreadings</span>
+        <span class="stat-value" id="proofreadCount">0</span>
+      </div>
+    </div>
+
+    <div id="notesGrid" class="notes-grid"></div>
+
+    <div id="emptyState" class="empty-state">
+      <p>📝 No notes yet. Create one from the popup!</p>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
